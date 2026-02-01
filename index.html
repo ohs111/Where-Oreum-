@@ -1,0 +1,61 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>어디 오름? - 데이터 드라이븐 탐험</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#ffffff">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+          font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', '맑은 고딕', sans-serif; 
+          -webkit-tap-highlight-color: transparent;
+          user-select: none;
+          overflow: hidden;
+          margin: 0;
+          padding: 0;
+          background-color: #f8f9fa; /* 화이트 모드 기본 배경색 */
+          color: #1a1a1a;
+          transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .bg-mesh {
+          background: 
+            radial-gradient(at 0% 0%, hsla(215, 100%, 15%, 1) 0, transparent 60%), 
+            radial-gradient(at 100% 0%, hsla(150, 100%, 8%, 1) 0, transparent 60%);
+        }
+        .tab-content {
+          height: calc(100vh - 84px);
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          scroll-behavior: smooth;
+        }
+        ::-webkit-scrollbar { display: none; }
+        .active-scale { transition: transform 0.1s ease-out; }
+        .active-scale:active { transform: scale(0.96); }
+        .grab-handle {
+          width: 36px;
+          height: 4px;
+          background-color: rgba(128, 128, 128, 0.4);
+          border-radius: 2px;
+          margin: 12px auto;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "recharts": "https://esm.sh/recharts@^3.7.0"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>

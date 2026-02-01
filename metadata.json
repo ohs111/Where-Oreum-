@@ -1,0 +1,8 @@
+{
+  "name": "어디 오름? (Where Oreum?)",
+  "description": "A high-tech Jeju Island Oreum challenge platform leveraging satellite data and Gemini AI for personalized trekking recommendations and vegetation monitoring.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
