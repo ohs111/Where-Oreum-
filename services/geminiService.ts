@@ -34,11 +34,15 @@ async function callGeminiWithRetry<T>(
   throw lastError;
 }
 
-export async function getJejuWeather(): Promise<any> {
+export async function getJejuWeather(lang: 'ko' | 'en' = 'ko'): Promise<any> {
   return callGeminiWithRetry(async () => {
+    const prompt = lang === 'ko' 
+      ? "현재 제주도의 날씨 정보를 알려주세요. 온도, 날씨 상태(맑음/흐림/비 등), 풍속, 습도를 포함하여 JSON 형식으로 제공해 주세요."
+      : "Provide current weather info for Jeju Island. Include temperature, condition (clear/cloudy/rain, etc.), wind speed, and humidity in JSON format.";
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: "현재 제주도의 날씨 정보를 알려주세요. 온도, 날씨 상태(맑음/흐림/비 등), 풍속, 습도를 포함하여 JSON 형식으로 제공해 주세요.",
+      contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
@@ -47,7 +51,7 @@ export async function getJejuWeather(): Promise<any> {
           type: Type.OBJECT,
           properties: {
             temp: { type: Type.NUMBER, description: "현재 온도 (섭씨)" },
-            condition: { type: Type.STRING, description: "날씨 상태 (예: 맑음, 구름 조금, 흐림, 비 등)" },
+            condition: { type: Type.STRING, description: lang === 'ko' ? "날씨 상태 (예: 맑음, 흐림)" : "Weather condition (e.g., Clear, Cloudy)" },
             wind: { type: Type.STRING, description: "풍속 정보" },
             humidity: { type: Type.STRING, description: "습도 정보" },
             description: { type: Type.STRING, description: "날씨에 대한 짧은 조언이나 요약" }
@@ -68,27 +72,29 @@ export async function getJejuWeather(): Promise<any> {
 
 export async function getOreumRecommendations(
   userInput: string,
-  availableOreumNames: string[]
+  availableOreums: {name: string, name_en: string}[],
+  lang: 'ko' | 'en' = 'ko'
 ): Promise<RecommendationResponse> {
   return callGeminiWithRetry(async () => {
-    const listString = availableOreumNames.join(", ");
+    const listString = availableOreums.map(o => `${o.name} (${o.name_en})`).join(", ");
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `사용자 질문: "${userInput}"
-추천 가능한 오름 후보군: [${listString}]
+      contents: `User Query: "${userInput}"
+Available Candidates: [${listString}]
+Language: ${lang === 'ko' ? 'Korean' : 'English'}
 
-위 후보군 목록에 포함된 오름 중에서만 3곳을 선정하여 추천해 주세요. 
-각 오름의 특징을 사용자의 의도에 맞춰 설명하고, 탐방 팁을 제공해 주세요.`,
+Based on the candidates, select 3 locations and provide reasons, tips, and metadata in the requested language.`,
       config: {
-        systemInstruction: `당신은 제주도 오름 탐방 및 위성 데이터 분석 전문가 '오름피커'입니다.
-사용자의 기분, 상황, 목적(예: 데이트, 운동, 명상, 사진 촬영 등)에 가장 적합한 오름을 추천합니다.
+        systemInstruction: `You are 'Oreum Picker', an expert in Jeju Island trekking and satellite data analysis.
+Recommend oreums based on mood, situation, or purpose.
 
-[규칙]
-1. 반드시 제공된 '추천 가능한 오름 후보군' 리스트에 있는 이름만 사용하세요.
-2. 결과는 반드시 지정된 JSON 형식을 따라야 합니다.
-3. 추천 이유는 감성적이면서도 전문적이어야 합니다.
-4. 위성 관측 요약(satelliteSummary)에는 식생 지수(EVI)와 같은 전문적인 용어를 섞어 현재 탐방하기 좋은 상태임을 언급하세요.`,
+[Rules]
+1. ONLY use names from the provided candidate list.
+2. Return strictly in JSON format.
+3. Language must be ${lang === 'ko' ? 'Korean' : 'English'}.
+4. Use professional yet emotional descriptions.
+5. satelliteSummary should mention NDVI/EVI in a concise way.`,
         responseMimeType: "application/json",
         thinkingConfig: { thinkingBudget: 0 },
         responseSchema: {
@@ -99,16 +105,16 @@ export async function getOreumRecommendations(
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  name: { type: Type.STRING, description: "오름 이름 (리스트와 정확히 일치해야 함)" },
-                  reason: { type: Type.STRING, description: "사용자 맞춤형 추천 이유" },
-                  tips: { type: Type.STRING, description: "실질적인 탐방 팁" },
-                  difficulty: { type: Type.STRING, description: "난이도 (상/중/하)" },
-                  estimatedTime: { type: Type.STRING, description: "예상 소요 시간 (예: 약 40분)" },
+                  name: { type: Type.STRING, description: "Oreum name (must exactly match one of the provided Korean or English names)" },
+                  reason: { type: Type.STRING, description: "Customized reason" },
+                  tips: { type: Type.STRING, description: "Practical tips" },
+                  difficulty: { type: Type.STRING, description: lang === 'ko' ? "난이도 (상/중/하)" : "Difficulty (High/Mid/Low)" },
+                  estimatedTime: { type: Type.STRING, description: "Est. time (e.g., 40 mins)" },
                 },
                 required: ["name", "reason", "tips", "difficulty", "estimatedTime"],
               },
             },
-            satelliteSummary: { type: Type.STRING, description: "현재 제주 전역의 위성 데이터 상태 요약 (한 문장)" },
+            satelliteSummary: { type: Type.STRING, description: "One-sentence satellite summary" },
           },
           required: ["suggestedOreums", "satelliteSummary"],
         },
@@ -119,15 +125,10 @@ export async function getOreumRecommendations(
       const text = response.text;
       if (!text) throw new Error("AI 응답이 비어있습니다.");
       const parsed = JSON.parse(text);
-      
-      if (!parsed.suggestedOreums || !Array.isArray(parsed.suggestedOreums) || parsed.suggestedOreums.length === 0) {
-        throw new Error("유효한 추천 결과가 생성되지 않았습니다.");
-      }
-      
       return parsed;
     } catch (e) {
       console.error("Gemini Parsing Error:", e);
-      throw new Error("AI의 답변을 처리하는 중 문제가 발생했습니다. 다시 시도해 주세요.");
+      throw new Error(lang === 'ko' ? "AI 응답 처리 중 문제가 발생했습니다." : "Problem processing AI response.");
     }
   });
 }

@@ -61,7 +61,17 @@ const translations = {
     live_hikers: '등반 중',
     refresh_msg: '실시간 탐사 데이터를 동기화합니다...',
     my_climb_count_label: '내 등반',
-    goto_coupon_box: '쿠폰함 바로가기'
+    goto_coupon_box: '쿠폰함 바로가기',
+    wallet_close: '닫기',
+    coupon_used_success: '사용이 완료되었습니다 !',
+    difficulty_label: '난이도',
+    est_time_label: '소요 시간',
+    evi_label: '식생 지수',
+    hiker_sync_msg: '탐방객 동기화 중',
+    location_label: '위치',
+    desc_label: '설명',
+    climb_stats_title: '나의 탐방 기록 📝',
+    best_record_label: 'BEST'
   },
   en: {
     tab_home: 'Home',
@@ -119,7 +129,17 @@ const translations = {
     live_hikers: 'Climbing',
     refresh_msg: 'Syncing live exploration data...',
     my_climb_count_label: 'My Climbs',
-    goto_coupon_box: 'Go to Coupon Box'
+    goto_coupon_box: 'Go to Coupon Box',
+    wallet_close: 'Close',
+    coupon_used_success: 'Usage complete!',
+    difficulty_label: 'Difficulty',
+    est_time_label: 'Est. Time',
+    evi_label: 'NDVI/EVI',
+    hiker_sync_msg: 'Hikers Synced',
+    location_label: 'Location',
+    desc_label: 'Description',
+    climb_stats_title: 'My Trek Records 📝',
+    best_record_label: 'BEST'
   }
 };
 
@@ -134,7 +154,7 @@ const BottomNavItem: React.FC<{ active: boolean; onClick: () => void; icon: Reac
 );
 
 const App: React.FC = () => {
-  const [lang] = useState<'ko' | 'en'>('ko');
+  const [lang, setLang] = useState<'ko' | 'en'>('ko');
   const t = translations[lang];
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [activeTab, setActiveTab] = useState<'home' | 'climb' | 'ai' | 'shop' | 'collection'>('home');
@@ -290,7 +310,8 @@ const App: React.FC = () => {
       const oreum = session.targetOreum;
       const reward = 300;
       setTotalPoints(prev => prev + reward);
-      setPointHistory(prev => [{ id: Date.now(), oreumName: `${oreum.name} 등반 보상`, points: reward, date: new Date().toLocaleString() }, ...prev]);
+      const oreumName = lang === 'ko' ? oreum.name : oreum.name_en;
+      setPointHistory(prev => [{ id: Date.now(), oreumName: `${oreumName} 등반 보상`, points: reward, date: new Date().toLocaleString() }, ...prev]);
       setClimbCounts(prev => ({ ...prev, [oreum.id]: (prev[oreum.id] || 0) + 1 }));
       setCompletedRecords(prev => ({ ...prev, [oreum.id]: (prev[oreum.id] === undefined || finalTime < prev[oreum.id]) ? finalTime : prev[oreum.id] }));
       const newRank = { username: userName, time: finalTime, date: new Date().toLocaleDateString() };
@@ -305,7 +326,8 @@ const App: React.FC = () => {
       showToast(t.shop_insufficient, 'error');
     } else {
       setTotalPoints(prev => prev - coupon.price);
-      setPointHistory(prev => [{ id: Date.now(), oreumName: `쿠폰 교환: ${coupon.name}`, points: coupon.price, date: new Date().toLocaleString(), isSpending: true }, ...prev]);
+      const couponName = lang === 'ko' ? coupon.name : coupon.name_en;
+      setPointHistory(prev => [{ id: Date.now(), oreumName: `쿠폰 교환: ${couponName}`, points: coupon.price, date: new Date().toLocaleString(), isSpending: true }, ...prev]);
       setPurchasedCoupons(prev => [...prev, { id: coupon.id, instanceId: Date.now() }]);
       showToast(t.shop_success, 'success');
     }
@@ -318,7 +340,8 @@ const App: React.FC = () => {
     if (count === 0) { showToast(t.reviews_locked, 'error'); return; }
     if (userRev >= count) { showToast(t.reviews_quota_exceeded, 'error'); return; }
     setTotalPoints(p => p + 100);
-    setPointHistory(p => [{ id: Date.now(), oreumName: `${selectedOreum.name} 후기 보상`, points: 100, date: new Date().toLocaleString() }, ...p]);
+    const oreumName = lang === 'ko' ? selectedOreum.name : selectedOreum.name_en;
+    setPointHistory(p => [{ id: Date.now(), oreumName: `${oreumName} 후기 보상`, points: 100, date: new Date().toLocaleString() }, ...p]);
     setReviews(p => ({ ...p, [selectedOreum.id]: [{ id: Date.now(), text: reviewInput, date: new Date().toLocaleDateString(), isUser: true }, ...(p[selectedOreum.id] || [])] }));
     setReviewInput('');
     showToast(t.review_reward_msg, 'success');
@@ -343,7 +366,7 @@ const App: React.FC = () => {
       }, 100);
     } else if (timerRef.current) clearInterval(timerRef.current);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [session.isActive, session.isCompleted, isVerifying, userName]);
+  }, [session.isActive, session.isCompleted, isVerifying, userName, lang]);
 
   const themeClasses = {
     bg: theme === 'dark' ? 'bg-black' : 'bg-gray-50',
@@ -362,11 +385,11 @@ const App: React.FC = () => {
     setLoading(true);
     setRecommendations(null);
     try {
-      const res = await getOreumRecommendations(query, SAMPLE_OREUMS.map(o => o.name));
+      const res = await getOreumRecommendations(query, SAMPLE_OREUMS.map(o => ({ name: o.name, name_en: o.name_en })), lang);
       if (res && res.suggestedOreums) {
         setRecommendations(res);
       } else {
-        showToast("유효한 추천 결과를 받지 못했습니다.", "error");
+        showToast(lang === 'ko' ? "유효한 추천 결과를 받지 못했습니다." : "Failed to receive valid recommendations.", "error");
       }
     } catch (e: any) { 
       console.error(e);
@@ -378,10 +401,13 @@ const App: React.FC = () => {
     if (!newNameInput.trim()) return;
     setUserName(newNameInput.trim());
     setIsNameEditOpen(false);
-    showToast("이름이 성공적으로 변경되었습니다.", "success");
+    showToast(lang === 'ko' ? "이름이 성공적으로 변경되었습니다." : "Name changed successfully.", "success");
   };
 
-  const filteredOreums = SAMPLE_OREUMS.filter(o => o.name.toLowerCase().includes(climbSearchQuery.toLowerCase()));
+  const filteredOreums = SAMPLE_OREUMS.filter(o => {
+    const searchTarget = lang === 'ko' ? o.name : o.name_en;
+    return searchTarget.toLowerCase().includes(climbSearchQuery.toLowerCase());
+  });
 
   return (
     <div className={`h-screen flex flex-col relative overflow-hidden transition-colors duration-300 ${themeClasses.bg} ${themeClasses.text}`}>
@@ -398,10 +424,19 @@ const App: React.FC = () => {
         {activeTab === 'home' && (
           <div className="p-6 pb-28 space-y-12 pt-10 animate-in fade-in duration-500">
             <header className="flex justify-between items-start">
-              <div><h1 className="text-4xl font-black tracking-tighter leading-none">어디오름?</h1><p className="text-blue-500 text-[10px] font-black tracking-[0.2em] mt-3 uppercase">JEJU OREUM EXPLORER</p></div>
-              <div className="flex items-center">
+              <div className="flex flex-col items-start px-1">
+                <h1 className={`text-3xl font-black tracking-tighter mb-0.5 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                  {lang === 'ko' ? '어디오름?' : 'Where Oreum?'}
+                </h1>
+                <p className="text-blue-500/60 text-[10px] font-black tracking-[0.2em] uppercase">JEJU OREUM EXPLORER</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')} className={`w-12 h-12 flex items-center justify-center rounded-2xl border shadow-lg ${themeClasses.card} text-blue-500`}>
+                  <Icons.Globe />
+                  <span className="sr-only">Toggle Language</span>
+                </button>
                 <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className={`w-12 h-12 flex items-center justify-center rounded-2xl border shadow-lg ${themeClasses.card}`}>{theme === 'dark' ? <Icons.Sun /> : <Icons.Moon />}</button>
-                <button onClick={() => setIsWalletOpen(true)} className={`w-12 h-12 flex items-center justify-center rounded-2xl border shadow-lg ${themeClasses.card} text-blue-500 ml-2`}><Icons.Wallet /></button>
+                <button onClick={() => setIsWalletOpen(true)} className={`w-12 h-12 flex items-center justify-center rounded-2xl border shadow-lg ${themeClasses.card} text-blue-500`}><Icons.Wallet /></button>
               </div>
             </header>
 
@@ -440,7 +475,7 @@ const App: React.FC = () => {
                           <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${(liveHikers[o.id] || 0) < 30 ? 'bg-emerald-500' : 'bg-yellow-500'}`}></span>
                           <span className="text-white text-[8px] font-black uppercase tracking-widest leading-none">EVI {o.evi} • {liveHikers[o.id] || 0} {t.live_hikers}</span>
                         </div>
-                        <h3 className="text-white font-black text-xl leading-none mb-1 tracking-tighter">{o.name}</h3>
+                        <h3 className="text-white font-black text-xl leading-none mb-1 tracking-tighter">{lang === 'ko' ? o.name : o.name_en}</h3>
                       </div>
                     </div>
                   ))}
@@ -460,8 +495,8 @@ const App: React.FC = () => {
                       <img src={item.imageUrl} className="w-full h-full object-cover" alt={item.name} />
                     </div>
                     <div className="px-1">
-                      <div className="text-blue-500 text-[9px] font-black uppercase mb-1">{item.partner}</div>
-                      <h3 className="text-xs font-black leading-tight line-clamp-1">{item.name}</h3>
+                      <div className="text-blue-500 text-[9px] font-black uppercase mb-1">{lang === 'ko' ? item.partner : item.partner_en}</div>
+                      <h3 className="text-xs font-black leading-tight line-clamp-1">{lang === 'ko' ? item.name : item.name_en}</h3>
                       <div className="text-sm font-black text-blue-600 tracking-tighter mt-1">{item.price.toLocaleString()}P</div>
                     </div>
                   </div>
@@ -478,7 +513,7 @@ const App: React.FC = () => {
               <p className="opacity-50 text-[10px] font-black uppercase tracking-widest mt-2">{t.ai_recommend_subtitle}</p>
             </div>
             <div className={`p-2 rounded-3xl flex items-center gap-2 border ${themeClasses.input} shadow-xl shadow-blue-500/5`}>
-              <input value={query} onChange={(e)=>setQuery(e.target.value)} onKeyDown={(e)=>e.key==='Enter' && handleAiRecommend()} className="bg-transparent flex-1 p-4 outline-none font-bold text-sm" placeholder="오늘 가고 싶은 오름 분위기는?" />
+              <input value={query} onChange={(e)=>setQuery(e.target.value)} onKeyDown={(e)=>e.key==='Enter' && handleAiRecommend()} className="bg-transparent flex-1 p-4 outline-none font-bold text-sm" placeholder={lang === 'ko' ? "오늘 가고 싶은 오름 분위기는?" : "Mood you want today?"} />
               <button onClick={handleAiRecommend} disabled={loading} className="bg-blue-600 p-4 rounded-2xl text-white shadow-lg active-scale">
                 {loading ? <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Icons.Search />}
               </button>
@@ -487,14 +522,16 @@ const App: React.FC = () => {
             {loading && (
               <div className="py-20 flex flex-col items-center gap-6 animate-pulse">
                 <div className="w-16 h-16 rounded-full border-4 border-blue-500/20 border-t-blue-500 animate-spin"></div>
-                <p className="text-sm font-black text-blue-500 uppercase tracking-widest text-center px-6">AI가 최적의 오름을 분석하고 있습니다...</p>
+                <p className="text-sm font-black text-blue-500 uppercase tracking-widest text-center px-6">
+                  {lang === 'ko' ? "AI가 최적의 오름을 분석하고 있습니다..." : "AI is analyzing the best oreums..."}
+                </p>
               </div>
             )}
 
             {!loading && !recommendations && (
               <section className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
                 <div className="flex items-center justify-between px-1">
-                  <h2 className="text-2xl font-black uppercase tracking-tight">오늘의 탐사 추천</h2>
+                  <h2 className="text-2xl font-black uppercase tracking-tight">{lang === 'ko' ? '오늘의 탐사 추천' : "Today's Picks"}</h2>
                 </div>
                 <div className="grid gap-4">
                   {SAMPLE_OREUMS.slice(0, 5).map(o => (
@@ -503,10 +540,10 @@ const App: React.FC = () => {
                         <img src={o.imageUrl} className="w-full h-full object-cover" alt={o.name} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-xl font-black leading-none mb-2 truncate">{o.name}</h3>
+                        <h3 className="text-xl font-black leading-none mb-2 truncate">{lang === 'ko' ? o.name : o.name_en}</h3>
                         <div className="flex items-center gap-2">
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                          <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">EVI {o.evi} • {liveHikers[o.id] || 0} {t.live_hikers}</span>
+                          <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">EVI {o.evi} • {liveHikers[o.id] || 0} {t.live_hikers}</span>
                         </div>
                       </div>
                       <div className="text-blue-500 shrink-0 opacity-40 group-hover:opacity-100"><Icons.Play /></div>
@@ -525,10 +562,9 @@ const App: React.FC = () => {
 
                 <div className="space-y-8">
                   {recommendations.suggestedOreums.map((r, i) => {
-                    const cleanName = r.name.replace(/\s/g, '').toLowerCase();
                     const found = SAMPLE_OREUMS.find(o => {
-                      const sampleName = o.name.replace(/\s/g, '').toLowerCase();
-                      return sampleName.includes(cleanName) || cleanName.includes(sampleName);
+                      const cleanName = r.name.toLowerCase();
+                      return o.name.toLowerCase().includes(cleanName) || o.name_en.toLowerCase().includes(cleanName);
                     });
                     
                     return (
@@ -536,9 +572,11 @@ const App: React.FC = () => {
                         {found ? (
                           <div className="relative h-64 overflow-hidden">
                             <img src={found.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent"></div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent"></div>
                             <div className="absolute top-6 right-6 flex flex-col items-end gap-2">
-                               <div className="px-3 py-1.5 rounded-full bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest shadow-lg">{r.difficulty} 난이도</div>
+                               <div className="px-3 py-1.5 rounded-full bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest shadow-lg">
+                                 {r.difficulty} {lang === 'ko' ? '난이도' : 'Difficulty'}
+                               </div>
                                <div className="px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest">{found.height}m</div>
                             </div>
                             <div className="absolute bottom-6 left-8 flex items-center gap-3">
@@ -546,13 +584,13 @@ const App: React.FC = () => {
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                </span>
-                               <span className="text-white text-[10px] font-black uppercase tracking-[0.1em]">{liveHikers[found.id] || 0} 탐방객 동기화 중</span>
+                               <span className="text-white text-[10px] font-black uppercase tracking-[0.1em]">{liveHikers[found.id] || 0} {t.hiker_sync_msg}</span>
                             </div>
                           </div>
                         ) : (
                           <div className="h-40 bg-gray-100 dark:bg-white/5 flex flex-col items-center justify-center space-y-2 opacity-60">
                              <div className="text-lg">⛰️</div>
-                             <div className="text-[10px] font-black uppercase tracking-widest">데이터 매칭 중: {r.name}</div>
+                             <div className="text-[10px] font-black uppercase tracking-widest">Matching Data: {r.name}</div>
                           </div>
                         )}
                         <div className="p-8 space-y-6">
@@ -563,21 +601,23 @@ const App: React.FC = () => {
                           </div>
                           <div className="flex gap-4">
                              <div className="flex-1 p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-white/5">
-                                <div className="text-[9px] opacity-40 font-black uppercase mb-1">소요 시간</div>
+                                <div className="text-[9px] opacity-40 font-black uppercase mb-1">{t.est_time_label}</div>
                                 <div className="text-sm font-black tracking-tight">{r.estimatedTime}</div>
                              </div>
                              <div className="flex-1 p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-white/5">
-                                <div className="text-[9px] opacity-40 font-black uppercase mb-1">식생 지수</div>
-                                <div className="text-sm font-black tracking-tight">{found?.evi || '0.72'}</div>
+                                <div className="text-[9px] opacity-40 font-black uppercase mb-1">{t.evi_label}</div>
+                                <div className="text-sm font-black text-emerald-500 tracking-tight">{found?.evi || '0.72'}</div>
                              </div>
                           </div>
                           <div className="p-5 rounded-3xl bg-emerald-500/5 border border-emerald-500/10">
-                             <div className="text-emerald-600 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2"><Icons.Check /> EXPLORER TIP</div>
+                             <div className="text-emerald-600 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2"><Icons.Check /> {lang === 'ko' ? '탐험 팁!' : 'Explore Tip!'}</div>
                              <p className="text-[11px] font-bold opacity-80">{r.tips}</p>
                           </div>
                           {found && (
                              <div className="text-center pt-2">
-                                <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest animate-pulse">카드를 눌러 탐방 준비하기 →</span>
+                                <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest animate-pulse">
+                                  {lang === 'ko' ? '카드를 눌러 탐방 준비하기 →' : 'Tap to prepare trekking →'}
+                                </span>
                              </div>
                           )}
                         </div>
@@ -593,23 +633,64 @@ const App: React.FC = () => {
         {activeTab === 'climb' && (
           <div className="p-6 pt-10 pb-28 animate-in slide-in-from-right-10 duration-500 h-full overflow-y-auto no-scrollbar">
             {session.isActive && !session.isCompleted ? (
-              <div className="flex flex-col items-center justify-center h-full space-y-8">
-                 <h2 className="text-3xl font-black uppercase tracking-tighter text-center">{session.targetOreum?.name}</h2>
-                 <div className="relative w-64 h-64 flex items-center justify-center rounded-full border-[10px] border-blue-600/10 shadow-inner">
-                    <div className="text-center">
-                       <div className="text-[10px] opacity-40 uppercase font-black mb-1">정상까지</div>
-                       <div className="text-5xl font-black text-blue-600 tracking-tighter">{Math.round(session.distanceToSummit)}m</div>
+              <div className="flex flex-col items-center justify-center h-full space-y-12">
+                 <h2 className="text-3xl font-black uppercase tracking-tighter text-center">{lang === 'ko' ? session.targetOreum?.name : session.targetOreum?.name_en}</h2>
+                 
+                 <div className="relative w-72 h-72 sm:w-80 sm:h-80 flex items-center justify-center">
+                    <svg className="absolute inset-0 w-full h-full transform -rotate-90 drop-shadow-2xl" viewBox="0 0 100 100">
+                       <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-blue-600/10" />
+                       <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="7" fill="transparent" strokeDasharray={2 * Math.PI * 45} strokeDashoffset={(session.distanceToSummit / (initialDistanceRef.current || 1)) * (2 * Math.PI * 45)} strokeLinecap="round" className="text-blue-600 transition-all duration-500 ease-out" />
+                    </svg>
+
+                    <div className="text-center z-10 animate-in fade-in zoom-in duration-700">
+                       <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-2">{t.climb_progress}</div>
+                       <div className="flex items-baseline justify-center gap-1">
+                          <span className="text-6xl font-black text-blue-600 tracking-tighter">{Math.round(session.distanceToSummit)}</span>
+                          <span className="text-xl font-black text-blue-600/50 uppercase">m</span>
+                       </div>
                     </div>
-                    <div className="absolute inset-0 border-[10px] border-blue-600 border-t-transparent rounded-full animate-spin-slow opacity-20"></div>
                  </div>
-                 <button onClick={() => { setIsVerifying(true); setTimeout(() => finishClimbing(elapsedTime), 2000); }} className="w-full max-w-xs py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase active-scale shadow-xl">{isVerifying ? '위성 인증 중...' : '등반 완료'}</button>
+
+                 <div className="w-full max-w-xs space-y-4">
+                    <button 
+                       onClick={() => { setIsVerifying(true); setTimeout(() => finishClimbing(elapsedTime), 2000); }} 
+                       className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase active-scale shadow-xl shadow-blue-900/20 flex items-center justify-center gap-3"
+                    >
+                       {isVerifying ? (
+                          <>
+                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                             <span>{lang === 'ko' ? '인증 중...' : 'Verifying...'}</span>
+                          </>
+                       ) : t.climb_action_finish}
+                    </button>
+                    <p className="text-[10px] text-center font-black opacity-30 uppercase tracking-widest">SENTINEL-2 SATELLITE TRACKING ACTIVE</p>
+                 </div>
               </div>
             ) : session.isCompleted ? (
                <div className="h-full flex flex-col items-center justify-center p-8 text-center animate-in zoom-in-95 duration-500">
                   <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white mb-6 shadow-2xl"><Icons.Check /></div>
-                  <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">등반 완료 !</h2>
-                  <div className="p-8 rounded-[2.5rem] bg-black/5 w-full mb-8"><div className="text-[10px] opacity-40 font-black uppercase mb-1">소요 시간</div><div className="text-4xl font-black text-blue-600 tracking-tighter">{elapsedTime.toFixed(1)}s</div></div>
-                  <button onClick={() => setSession({...session, isCompleted: false, isActive: false})} className="w-full bg-black text-white py-5 rounded-[2rem] font-black uppercase">계속 탐험하기</button>
+                  <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">{t.climb_finish}</h2>
+                  <div className="p-8 rounded-[2.5rem] bg-black/5 w-full mb-8"><div className="text-[10px] opacity-40 font-black uppercase mb-1">{t.est_time_label}</div><div className="text-4xl font-black text-blue-600 tracking-tighter">{elapsedTime.toFixed(1)}s</div></div>
+                  
+                  <div className="w-full space-y-4">
+                    <button 
+                      onClick={() => setSession({...session, isCompleted: false, isActive: false})} 
+                      className={`w-full py-5 rounded-[2rem] font-black uppercase active-scale shadow-xl transition-colors duration-300 ${theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'}`}
+                    >
+                      {lang === 'ko' ? '계속 탐험하기' : 'Continue Explore'}
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        const target = session.targetOreum;
+                        setSession({...session, isCompleted: false, isActive: false});
+                        if (target) setSelectedOreum(target);
+                      }} 
+                      className={`w-full py-3 rounded-[2rem] font-black uppercase text-xs active-scale border-2 transition-all ${theme === 'dark' ? 'border-white/20 text-white hover:bg-white/5' : 'border-black/10 text-black hover:bg-black/5'}`}
+                    >
+                      {lang === 'ko' ? '후기 작성하기' : 'Write a Review'}
+                    </button>
+                  </div>
                </div>
             ) : (
               <div className="space-y-8">
@@ -627,7 +708,7 @@ const App: React.FC = () => {
                           <img src={o.imageUrl} className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-xl font-black leading-none mb-2 truncate">{o.name}</h3>
+                          <h3 className="text-xl font-black leading-none mb-2 truncate">{lang === 'ko' ? o.name : o.name_en}</h3>
                           <div className="flex items-center gap-2">
                             <div className="text-[10px] font-black text-blue-500 uppercase flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
@@ -636,7 +717,7 @@ const App: React.FC = () => {
                             {myCount > 0 && (
                               <div className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                {t.my_climb_count_label} {myCount}회
+                                {t.my_climb_count_label} {myCount}{lang === 'ko' ? '회' : ' times'}
                               </div>
                             )}
                           </div>
@@ -657,7 +738,7 @@ const App: React.FC = () => {
               <div><h2 className="text-2xl font-black uppercase leading-tight tracking-tighter">{t.shop_title}</h2><p className="opacity-50 text-[10px] font-black uppercase tracking-widest mt-2">{t.shop_subtitle}</p></div>
               <div className="flex items-center gap-2">
                 <button onClick={() => setIsCouponBoxOpen(true)} className={`w-12 h-12 flex items-center justify-center rounded-2xl border shadow-lg ${themeClasses.card} text-sky-500`} title={t.open_coupon_box}><Icons.Ticket /></button>
-                <button onClick={() => setIsWalletOpen(true)} className={`w-12 h-12 flex items-center justify-center rounded-2xl border shadow-lg ${themeClasses.card} text-blue-500`}><Icons.Wallet /></button>
+                <button onClick={() => setIsWalletOpen(true)} className={`w-12 h-12 flex items-center justify-center rounded-2xl border shadow-lg ${themeClasses.card} text-blue-500 ml-2`}><Icons.Wallet /></button>
               </div>
             </header>
             <div className="grid grid-cols-2 gap-4">
@@ -668,9 +749,8 @@ const App: React.FC = () => {
                       <img src={c.imageUrl} className="w-full h-full object-cover" alt={c.name} />
                     </div>
                     <div className="px-1">
-                      {/* Fixed: changed coupon.partner to c.partner */}
-                      <div className="text-blue-500 text-[8px] font-black uppercase mb-0.5">{c.partner}</div>
-                      <h3 className="text-xs font-black leading-tight line-clamp-2 min-h-[2.5rem]">{c.name}</h3>
+                      <div className="text-blue-500 text-[8px] font-black uppercase mb-0.5">{lang === 'ko' ? c.partner : (c as any).partner_en}</div>
+                      <h3 className="text-xs font-black leading-tight line-clamp-2 min-h-[2.5rem]">{lang === 'ko' ? c.name : (c as any).name_en}</h3>
                       <div className="text-base font-black text-blue-600 tracking-tighter mt-1">{c.price.toLocaleString()}P</div>
                     </div>
                   </div>
@@ -702,10 +782,10 @@ const App: React.FC = () => {
             </header>
             <div className="grid grid-cols-2 gap-4">
               <div className={`p-6 rounded-[2rem] border ${themeClasses.card}`}><div className="opacity-40 text-[9px] font-black uppercase mb-1">{t.profile_points}</div><div className="text-2xl font-black text-blue-500 tracking-tighter">{totalPoints.toLocaleString()}P</div></div>
-              <div className={`p-6 rounded-[2rem] border ${themeClasses.card}`}><div className="opacity-40 text-[9px] font-black uppercase mb-1">{t.profile_climb_count}</div><div className="text-2xl font-black tracking-tighter">{Object.keys(climbCounts).length} <span className="text-xs opacity-40">Locations</span></div></div>
+              <div className={`p-6 rounded-[2rem] border ${themeClasses.card}`}><div className="opacity-40 text-[9px] font-black uppercase mb-1">{t.profile_climb_count}</div><div className="text-2xl font-black tracking-tighter">{Object.keys(climbCounts).length} <span className="text-xs opacity-40">{lang === 'ko' ? '곳' : 'Locations'}</span></div></div>
             </div>
             <section className="space-y-6">
-               <h3 className="text-2xl font-black uppercase tracking-tight px-1">나의 탐방 기록 📝</h3>
+               <h3 className="text-2xl font-black uppercase tracking-tight px-1">{t.climb_stats_title}</h3>
                <div className="space-y-3">
                   {Object.entries(climbCounts).map(([id, count]) => {
                     const log = SAMPLE_OREUMS.find(o => o.id === id);
@@ -713,7 +793,12 @@ const App: React.FC = () => {
                     return (
                       <div key={id} onClick={() => setSelectedOreum(log)} className={`p-4 rounded-2xl border flex items-center gap-4 active-scale cursor-pointer ${themeClasses.card}`}>
                          <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0"><img src={log.imageUrl} className="w-full h-full object-cover" /></div>
-                         <div className="flex-1"><h4 className="text-sm font-black truncate">{log.name}</h4><div className="text-[10px] opacity-40 uppercase font-black">탐방 {count}회 • BEST {formatTimeFull(completedRecords[id])}</div></div>
+                         <div className="flex-1">
+                           <h4 className="text-sm font-black truncate">{lang === 'ko' ? log.name : log.name_en}</h4>
+                           <div className="text-[10px] opacity-40 uppercase font-black">
+                             {lang === 'ko' ? '탐방' : 'Trek'} {count}{lang === 'ko' ? '회' : ' times'} • {t.best_record_label} {formatTimeFull(completedRecords[id])}
+                           </div>
+                         </div>
                          <div className="text-blue-500 scale-75"><Icons.Check /></div>
                       </div>
                     );
@@ -727,7 +812,7 @@ const App: React.FC = () => {
       {/* Name Edit Modal */}
       {isNameEditOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-md p-6" onClick={() => setIsNameEditOpen(false)}>
-          <div className={`w-full max-w-sm rounded-[2.5rem] border p-8 flex flex-col space-y-6 shadow-2xl animate-in zoom-in-95 duration-300 ${theme === 'dark' ? 'bg-[#0a0a0a] border-white/10' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
+          <div className={`w-full max-sm rounded-[2.5rem] border p-8 flex flex-col space-y-6 shadow-2xl animate-in zoom-in-95 duration-300 ${theme === 'dark' ? 'bg-[#0a0a0a] border-white/10' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-black uppercase tracking-tight">{t.name_edit_title}</h2>
               <button onClick={() => setIsNameEditOpen(false)}><Icons.X /></button>
@@ -777,17 +862,25 @@ const App: React.FC = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
                     <button onClick={() => setSelectedOreum(null)} className="absolute top-4 right-6 bg-black/50 p-3 rounded-2xl text-white active-scale shadow-lg backdrop-blur-md border border-white/10"><Icons.X /></button>
                     <div className="absolute bottom-8 left-10 right-10">
-                      <div className="flex items-center gap-2 mb-2"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">SATELLITE EVI: {selectedOreum.evi}</span></div>
-                      <h2 className="text-4xl font-black text-white tracking-tighter leading-none">{selectedOreum.name}</h2>
-                      <p className="text-white/90 text-sm font-bold mt-4 leading-relaxed line-clamp-3 bg-black/20 p-3 rounded-2xl backdrop-blur-sm border border-white/10">{selectedOreum.description}</p>
+                      <div className="flex items-center gap-2 mb-2"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">{t.evi_label}: {selectedOreum.evi}</span></div>
+                      <h2 className="text-4xl font-black text-white tracking-tighter leading-none">{lang === 'ko' ? selectedOreum.name : selectedOreum.name_en}</h2>
+                      
+                      <div className="flex items-center gap-1.5 mt-2 opacity-70 text-white">
+                        <Icons.Pin />
+                        <span className="text-[10px] font-bold truncate">{lang === 'ko' ? selectedOreum.location : selectedOreum.location_en}</span>
+                      </div>
+
+                      <p className="text-white/90 text-sm font-bold mt-4 leading-relaxed line-clamp-3 bg-black/20 p-3 rounded-2xl backdrop-blur-sm border border-white/10">
+                        {lang === 'ko' ? selectedOreum.description : selectedOreum.description_en}
+                      </p>
                     </div>
                   </div>
 
                   <div className="p-8 space-y-8">
                     <div className="grid grid-cols-3 gap-4">
-                       <div className={`p-4 rounded-3xl border text-center ${themeClasses.card}`}><div className="text-[9px] opacity-50 uppercase font-black mb-1">내 등반</div><div className="text-lg font-black text-blue-500">{climbCount}회</div></div>
-                       <div className={`p-4 rounded-3xl border text-center ${themeClasses.card}`}><div className="text-[9px] opacity-50 uppercase font-black mb-1">현재 인원</div><div className="text-lg font-black text-emerald-500">{liveHikers[selectedOreum.id] || 0}</div></div>
-                       <div className={`p-4 rounded-3xl border text-center ${themeClasses.card}`}><div className="text-[9px] opacity-50 uppercase font-black mb-1">최고 기록</div><div className="text-[11px] font-black truncate">{bestRecord ? formatTimeFull(bestRecord) : '--:--'}</div></div>
+                       <div className={`p-4 rounded-3xl border text-center ${themeClasses.card}`}><div className="text-[9px] opacity-50 uppercase font-black mb-1">{lang === 'ko' ? '내 등반' : 'My Treks'}</div><div className="text-lg font-black text-blue-500">{climbCount}{lang === 'ko' ? '회' : ''}</div></div>
+                       <div className={`p-4 rounded-3xl border text-center ${themeClasses.card}`}><div className="text-[9px] opacity-50 uppercase font-black mb-1">{lang === 'ko' ? '현재 인원' : 'Hikers'}</div><div className="text-lg font-black text-emerald-500">{liveHikers[selectedOreum.id] || 0}</div></div>
+                       <div className={`p-4 rounded-3xl border text-center ${themeClasses.card}`}><div className="text-[9px] opacity-50 uppercase font-black mb-1">{lang === 'ko' ? '최고 기록' : 'Best Record'}</div><div className="text-[11px] font-black truncate">{bestRecord ? formatTimeFull(bestRecord) : '--:--'}</div></div>
                     </div>
 
                     <div className="space-y-4">
@@ -818,7 +911,9 @@ const App: React.FC = () => {
                           }
                        </div>
                     </div>
-                    <button onClick={() => { startClimbing(selectedOreum); setSelectedOreum(null); }} className="w-full bg-blue-600 text-white py-6 rounded-[2.5rem] font-black uppercase active-scale shadow-lg shadow-blue-900/30 tracking-tight">등반 시작하기</button>
+                    <button onClick={() => { startClimbing(selectedOreum); setSelectedOreum(null); }} className="w-full bg-blue-600 text-white py-6 rounded-[2.5rem] font-black uppercase active-scale shadow-lg shadow-blue-900/30 tracking-tight">
+                      {lang === 'ko' ? '등반 시작하기' : 'Start Trekking'}
+                    </button>
                   </div>
                </div>
             </div>
@@ -877,6 +972,15 @@ const App: React.FC = () => {
                 )}
               </div>
             </div>
+
+            <div className={`p-6 border-t ${theme === 'dark' ? 'bg-[#0a0a0a] border-white/5' : 'bg-white border-gray-100'}`}>
+              <button 
+                onClick={() => setIsWalletOpen(false)}
+                className={`w-full py-4 rounded-2xl font-black uppercase text-xs active-scale transition-colors ${theme === 'dark' ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}`}
+              >
+                {t.wallet_close}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -885,7 +989,7 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-xl p-6" onClick={() => setIsCouponBoxOpen(false)}>
           <div className={`w-full max-w-md rounded-[3rem] border p-8 flex flex-col max-h-[85vh] shadow-2xl animate-in zoom-in-95 duration-300 ${theme === 'dark' ? 'bg-gray-950 border-white/10' : 'bg-white border-gray-200'}`} onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-8 shrink-0"><h2 className="text-3xl font-black uppercase tracking-tighter">{t.coupon_box_title}</h2><button onClick={() => setIsCouponBoxOpen(false)}><Icons.X /></button></div>
-            <div className="flex-1 overflow-y-auto space-y-6 no-scrollbar pr-1">{purchasedCoupons.length === 0 ? <div className="py-20 text-center opacity-40">{t.coupon_box_empty}</div> : purchasedCoupons.map((pc, index) => { const coupon = SAMPLE_COUPONS.find(c => c.id === pc.id); if (!coupon) return null; const isUsed = usedCoupons.includes(pc.instanceId); return (<div key={pc.instanceId} onClick={() => !isUsed && setActiveCouponDetail({ ...pc, ...coupon })} className={`p-6 rounded-[2.5rem] border flex items-center gap-4 active-scale cursor-pointer overflow-hidden relative ${themeClasses.card} shadow-lg ${isUsed ? 'opacity-30 grayscale' : ''}`}>{isUsed && <div className="absolute inset-0 flex items-center justify-center text-white bg-black/20 font-black text-2xl rotate-[-15deg] z-10 pointer-events-none">USED</div>}<div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 shadow-md"><img src={coupon.imageUrl} className="w-full h-full object-cover" /></div><div className="flex-1 min-w-0"><div className="text-[9px] font-black text-blue-500 uppercase tracking-widest">{coupon.partner}</div><h3 className="text-sm font-black tracking-tight truncate leading-tight">{coupon.name}</h3></div><div className="text-blue-500"><Icons.Play /></div></div>); })}</div>
+            <div className="flex-1 overflow-y-auto space-y-6 no-scrollbar pr-1">{purchasedCoupons.length === 0 ? <div className="py-20 text-center opacity-40">{t.coupon_box_empty}</div> : purchasedCoupons.map((pc, index) => { const coupon = SAMPLE_COUPONS.find(c => c.id === pc.id); if (!coupon) return null; const isUsed = usedCoupons.includes(pc.instanceId); return (<div key={pc.instanceId} onClick={() => !isUsed && setActiveCouponDetail({ ...pc, ...coupon })} className={`p-6 rounded-[2.5rem] border flex items-center gap-4 active-scale cursor-pointer overflow-hidden relative ${themeClasses.card} shadow-lg ${isUsed ? 'opacity-30 grayscale' : ''}`}>{isUsed && <div className="absolute inset-0 flex items-center justify-center text-white bg-black/20 font-black text-2xl rotate-[-15deg] z-10 pointer-events-none">USED</div>}<div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 shadow-md"><img src={coupon.imageUrl} className="w-full h-full object-cover" /></div><div className="flex-1 min-w-0"><div className="text-[9px] font-black text-blue-500 uppercase tracking-widest">{lang === 'ko' ? coupon.partner : (coupon as any).partner_en}</div><h3 className="text-sm font-black tracking-tight truncate leading-tight">{lang === 'ko' ? coupon.name : (coupon as any).name_en}</h3></div><div className="text-blue-500"><Icons.Play /></div></div>); })}</div>
           </div>
         </div>
       )}
@@ -896,8 +1000,8 @@ const App: React.FC = () => {
               <div className="p-10 flex flex-col items-center text-center space-y-8">
                  <button onClick={() => setActiveCouponDetail(null)} className="self-end -mt-4 -mr-4 p-4 active-scale"><Icons.X /></button>
                  <div className="w-32 h-32 rounded-3xl overflow-hidden shadow-2xl"><img src={activeCouponDetail.imageUrl} className="w-full h-full object-cover" /></div>
-                 <div><div className="text-blue-500 font-black text-xs uppercase tracking-[0.3em] mb-2">{activeCouponDetail.partner}</div><h2 className="text-2xl font-black tracking-tighter leading-tight">{activeCouponDetail.name}</h2></div>
-                 <button onClick={() => { if(confirm("지금 사용하시겠습니까?")) { setUsedCoupons([...usedCoupons, activeCouponDetail.instanceId]); setActiveCouponDetail(null); showToast("쿠폰 사용 완료!", "success"); } }} className="w-full bg-blue-600 text-white py-6 rounded-[2.5rem] font-black uppercase shadow-xl active-scale">{t.coupon_use_now}</button>
+                 <div><div className="text-blue-500 font-black text-xs uppercase tracking-[0.3em] mb-2">{lang === 'ko' ? activeCouponDetail.partner : activeCouponDetail.partner_en}</div><h2 className="text-2xl font-black tracking-tighter leading-tight">{lang === 'ko' ? activeCouponDetail.name : activeCouponDetail.name_en}</h2></div>
+                 <button onClick={() => { if(confirm(lang === 'ko' ? "지금 사용하시겠습니까?" : "Use now?")) { setUsedCoupons([...usedCoupons, activeCouponDetail.instanceId]); setActiveCouponDetail(null); showToast(lang === 'ko' ? "사용이 완료되었습니다 !" : "Usage complete!", "success"); } }} className="w-full bg-blue-600 text-white py-6 rounded-[2.5rem] font-black uppercase shadow-xl active-scale">{t.coupon_use_now}</button>
               </div>
            </div>
         </div>
